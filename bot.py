@@ -13,8 +13,12 @@ def start(message):
 
 @bot.message_handler(content_types=['document'])
 def doc(message):
-    bot.reply_to(message, "Получен документ, но ничего не произошло.")
     log_interaction(message, f"sent a document: \"{message.document.file_name}\"")
+    if message.document.file_name.endswith(".xlsx"):
+        bot.reply_to(message, "Получен документ, но ничего не произошло.")
+    else:
+        bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
+        logging.info("It is not an .xlsx file, nothing happened.")
 
 @bot.message_handler()
 def msg(message):
