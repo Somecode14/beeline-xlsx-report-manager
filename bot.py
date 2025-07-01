@@ -11,6 +11,11 @@ def start(message):
     bot.reply_to(message, "Добро пожаловать! Отправьте файл .xlsx для добавления информации в базу.\nИли введите /start, чтобы показать это сообщение ещё раз.")
     log_interaction(message, "sent /start")
 
+@bot.message_handler(content_types=['document'])
+def doc(message):
+    bot.reply_to(message, "Получен документ, но ничего не произошло.")
+    log_interaction(message, f"sent a document: \"{message.document.file_name}\"")
+
 @bot.message_handler()
 def msg(message):
     # TODO: добавить описание команды выгрузки статистики
