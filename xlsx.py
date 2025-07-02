@@ -42,7 +42,16 @@ def get_worksheet(file, message, sz_number):
                 logging.warning(f"Unable to get BSid of {workbook.loc[row]['CellName']}.")
             logging.info(f"BSID: {bsid}")
 
-            new_row = pandas.Series(data = {"CellName": workbook.loc[row]["CellName"], "BsNumber": bs_number, "Стандарт": "?", "BSID": bsid, "Филиал": "?", "CustomStatus": "?", "СЗ_Number": sz_number, "StartTime": "?", "EndTime": "?", "Время изменения": "?", "Автор": "?"})
+            # Стандарт
+
+            ran = ""
+            if "Ran" in workbook:
+                ran = workbook.loc[row]["Ran"]
+                logging.info(f"Ran: {ran}")
+            else:
+                logging.info(f"No Ran specified. Leaving it empty.")
+
+            new_row = pandas.Series(data = {"CellName": workbook.loc[row]["CellName"], "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": "?", "СЗ_Number": sz_number, "StartTime": "?", "EndTime": "?", "Время изменения": "?", "Автор": bot.get_log_username(message.from_user)})
             new_rows = pandas.concat([new_rows, new_row.to_frame().T])
             cell_names.add(workbook.loc[row]["CellName"])
     if new_cell_names:
@@ -50,4 +59,4 @@ def get_worksheet(file, message, sz_number):
         database.to_excel("database/database_new.xlsx", index=False)
         bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} записей в базу: {new_cell_names}.")
     else:
-        bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Нет изменений в базе.")
+        bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
