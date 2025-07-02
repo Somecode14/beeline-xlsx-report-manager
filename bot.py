@@ -3,6 +3,8 @@ import logging
 
 import telebot
 
+import xlsx
+
 bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
 @bot.message_handler(commands=['start'])
@@ -13,9 +15,18 @@ def start(message):
 
 @bot.message_handler(content_types=['document'])
 def doc(message):
-    log_interaction(message, f"sent a document: \"{message.document.file_name}\"")
-    if message.document.file_name.endswith(".xlsx"):
-        bot.reply_to(message, "Получен документ, но ничего не произошло.")
+    doc_name = message.document.file_name
+    log_interaction(message, f"sent a document: \"{doc_name}\"")
+    if doc_name.endswith(".xlsx"):
+        xlsx_doc_info = bot.get_file(message.document.file_id)
+        xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+        path = "input/" + doc_name
+
+        # СЗ_Number
+
+        # Request the number via Telegram bot
+        bot.reply_to(message, "✍️ Введите СЗ_Number.")
+        bot.register_next_step_handler(message, number_listener, xlsx_doc, path)
     else:
         bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
         logging.info("It is not an .xlsx file, nothing happened.")
@@ -43,5 +54,11 @@ def get_log_username(user):
     else:
         return f"@{user.username} ({user.id})"
 
+def number_listener(message, xlsx_doc, path):
+    sz_number = message.text
+    logging.info(f"СЗ_Number: {sz_number} (received from {get_log_username(message.from_user)})")
+    with open(path, "wb") as new_file:
+        new_file.write(xlsx_doc)
+    xlsx.get_worksheet(path, message, sz_number)  # -> xlsx.py
 
 bot.infinity_polling()
