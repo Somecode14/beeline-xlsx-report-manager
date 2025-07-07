@@ -3,17 +3,30 @@ import logging
 import numpy
 
 import bot
+import config
 
-database = pandas.read_excel("database/database.xlsx")
+database = None
 cell_names = set()
-for cell_name in database["CellName"].values:
-    cell_names.add(cell_name)
+
+def read_database():
+    global database
+    global cell_names
+    database = pandas.read_excel("database/database.xlsx")
+    cell_names = set()
+    for cell_name in database["CellName"].values:
+        cell_names.add(cell_name)
+    logging.info(f"Loaded database ({len(cell_names)} records).")
+
+read_database()
 
 def get_worksheet(file, message, sz_number, custom_status):
     global database
+    if config.read_database_on_each_input:
+        read_database()
     workbook = pandas.read_excel(file)
     new_rows = pandas.DataFrame()
     new_cell_names = []
+    modified_cell_names = []
     for row in workbook.index:
         cell_name = workbook.loc[row]["CellName"]
         if cell_name in cell_names:
@@ -27,8 +40,9 @@ def get_worksheet(file, message, sz_number, custom_status):
 
             else:
 
-                # TODO: Only update CustomStatus for the record
-                logging.info(f"Supposed to change the CustomStatus here.")
+                logging.info(f"Changing the CustomStatus from {matched_custom_status.values[0]} to {custom_status}.")
+                database.loc[matched_custom_status.index[0], "CustomStatus"] = custom_status
+                modified_cell_names.append(cell_name)
 
         else:
 
@@ -71,10 +85,10 @@ def get_worksheet(file, message, sz_number, custom_status):
             new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": "?", "EndTime": "?", "Время изменения": "?", "Автор": bot.get_log_username(message.from_user)})
             new_rows = pandas.concat([new_rows, new_row.to_frame().T])
             cell_names.add(cell_name)
-    if new_cell_names:
+    if new_cell_names or modified_cell_names: # TODO: implement proper condition
         database = pandas.concat([database, new_rows])
         database.to_excel("database/database_new.xlsx", index=False)
-        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} записей в базу: {new_cell_names}.")
+        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} записей в базу: {new_cell_names}.\nИзменён статус {len(modified_cell_names)} записей в базе: {modified_cell_names}")
     else:
         bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
 
