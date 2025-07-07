@@ -26,7 +26,7 @@ def doc(message):
 
         # Request the number via Telegram bot
         bot.reply_to(message, "✍️ Введите СЗ_Number.")
-        bot.register_next_step_handler(message, number_listener, xlsx_doc, path)
+        bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
     else:
         bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
         logging.info("It is not an .xlsx file, nothing happened.")
@@ -54,11 +54,17 @@ def get_log_username(user):
     else:
         return f"@{user.username} ({user.id})"
 
-def number_listener(message, xlsx_doc, path):
+def sz_number_listener(message, xlsx_doc, path):
     sz_number = message.text
     logging.info(f"СЗ_Number: {sz_number} (received from {get_log_username(message.from_user)})")
+    bot.reply_to(message, "✍️ Введите CustomStatus (on/off).")
+    bot.register_next_step_handler(message, custom_status_listener, xlsx_doc, path, sz_number)
+
+def custom_status_listener(message, xlsx_doc, path, sz_number):
+    custom_status = message.text
+    logging.info(f"CustomStatus: {custom_status} (received from {get_log_username(message.from_user)})")
     with open(path, "wb") as new_file:
         new_file.write(xlsx_doc)
-    xlsx.get_worksheet(path, message, sz_number)  # -> xlsx.py
+    xlsx.get_worksheet(path, message, sz_number, custom_status)  # -> xlsx.py
 
 bot.infinity_polling()
