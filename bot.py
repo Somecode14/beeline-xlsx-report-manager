@@ -63,8 +63,20 @@ def sz_number_listener(message, xlsx_doc, path):
 def custom_status_listener(message, xlsx_doc, path, sz_number):
     custom_status = message.text
     logging.info(f"CustomStatus: {custom_status} (received from {get_log_username(message.from_user)})")
+    bot.reply_to(message, "✍️ Введите StartTime.")
+    bot.register_next_step_handler(message, start_time_listener, xlsx_doc, path, sz_number, custom_status)
+
+def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
+    start_time = message.text
+    logging.info(f"StartTime: {start_time} (received from {get_log_username(message.from_user)})")
+    bot.reply_to(message, "✍️ Введите EndTime.")
+    bot.register_next_step_handler(message, end_time_listener, xlsx_doc, path, sz_number, custom_status, start_time)
+
+def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_time):
+    end_time = message.text
+    logging.info(f"EndTime: {end_time} (received from {get_log_username(message.from_user)})")
     with open(path, "wb") as new_file:
         new_file.write(xlsx_doc)
-    xlsx.get_worksheet(path, message, sz_number, custom_status)  # -> xlsx.py
+    xlsx.get_worksheet(path, message, sz_number, custom_status, start_time, end_time)  # -> xlsx.py
 
 bot.infinity_polling()

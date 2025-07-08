@@ -19,7 +19,7 @@ def read_database():
 
 read_database()
 
-def get_worksheet(file, message, sz_number, custom_status):
+def get_worksheet(file, message, sz_number, custom_status, start_time, end_time):
     global database
     if config.read_database_on_each_input:
         read_database()
@@ -82,15 +82,26 @@ def get_worksheet(file, message, sz_number, custom_status):
             else:
                 logging.info(f"No Ran specified. Leaving it empty.")
 
-            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": "?", "EndTime": "?", "Время изменения": "?", "Автор": bot.get_log_username(message.from_user)})
+            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": "?", "Автор": bot.get_log_username(message.from_user)})
             new_rows = pandas.concat([new_rows, new_row.to_frame().T])
             cell_names.add(cell_name)
-    if new_cell_names or modified_cell_names: # TODO: implement proper condition
+    if new_cell_names or modified_cell_names:
         database = pandas.concat([database, new_rows])
         database.to_excel("database/database_new.xlsx", index=False)
-        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} записей в базу: {new_cell_names}.\nИзменён статус {len(modified_cell_names)} записей в базе: {modified_cell_names}")
+        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(new_cell_names), True)} в базе: {modified_cell_names}")
     else:
         bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
 
-#def records_amount_case(amount):
-    #if amount.ends == 1:
+def records_amount_case(amount_int, is_genitive):
+    amount = str(amount_int)
+    if amount.endswith("1") and not amount.endswith("11"):
+        if is_genitive:
+            return "запись"
+        else:
+            return "записи"
+    elif is_genitive:
+        return "записей"
+    elif (amount.endswith("2") or amount.endswith("3") or amount.endswith("4")) and not(amount.endswith("12") or amount.endswith("13") or amount.endswith("14")):
+        return "записи"
+    else:
+        return "записей"
