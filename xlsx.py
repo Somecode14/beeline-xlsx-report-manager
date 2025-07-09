@@ -90,7 +90,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
         database = pandas.concat([database, new_rows])
         database.to_excel("database/database.xlsx", index=False)
         logging.info(f"All changes have been written to the database.")
-        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(new_cell_names), True)} в базе: {modified_cell_names}")
+        bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе: {modified_cell_names}")
     else:
         bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
 
@@ -98,9 +98,9 @@ def records_amount_case(amount_int, is_genitive: bool):
     amount = str(amount_int)
     if amount.endswith("1") and not amount.endswith("11"):
         if is_genitive:
-            return "запись"
-        else:
             return "записи"
+        else:
+            return "запись"
     elif is_genitive:
         return "записей"
     elif (amount.endswith("2") or amount.endswith("3") or amount.endswith("4")) and not(amount.endswith("12") or amount.endswith("13") or amount.endswith("14")):
