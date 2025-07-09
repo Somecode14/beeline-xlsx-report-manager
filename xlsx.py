@@ -1,6 +1,6 @@
 import pandas
 import logging
-import numpy
+from datetime import datetime
 
 import bot
 import config
@@ -82,17 +82,19 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
             else:
                 logging.info(f"No Ran specified. Leaving it empty.")
 
-            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": "?", "Автор": bot.get_log_username(message.from_user)})
+            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
             new_rows = pandas.concat([new_rows, new_row.to_frame().T])
             cell_names.add(cell_name)
+            logging.info(f"Added CellName {cell_name} to the database.")
     if new_cell_names or modified_cell_names:
         database = pandas.concat([database, new_rows])
-        database.to_excel("database/database_new.xlsx", index=False)
+        database.to_excel("database/database.xlsx", index=False)
+        logging.info(f"All changes have been written to the database.")
         bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(new_cell_names), True)} в базе: {modified_cell_names}")
     else:
         bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
 
-def records_amount_case(amount_int, is_genitive):
+def records_amount_case(amount_int, is_genitive: bool):
     amount = str(amount_int)
     if amount.endswith("1") and not amount.endswith("11"):
         if is_genitive:
