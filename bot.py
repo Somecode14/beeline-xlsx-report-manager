@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime
 
 import telebot
 
@@ -7,11 +8,11 @@ import xlsx
 
 bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
-context_descriptions = "/upload_records: Это служебная записка, добавить в общую базу.\n/upload_stats: Это файл статистики, перезаписать его на этот.\n\n/cancel: Отмена, ничего не делать с этим файлом"
+context_descriptions = "/upload_records: Это служебная записка, добавить её в общую базу.\n/upload_stats: Это файл статистики, перезаписать его на этот.\n\n/cancel: Отмена, ничего не делать с этим файлом"
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Добро пожаловать!\n\n/upload_records — добавить служебную записку в базу\n/upload_stats — перезаписать файл статистики\n\nИли просто отправьте файл .xlsx, чтобы начать.")
+    bot.reply_to(message, "Добро пожаловать!\n\n/upload_records — добавить служебную записку в базу\n/upload_stats — перезаписать файл статистики\n/count_stats — провести анализ статистики\n/get_records — скачать базу данных служебных записок\n\nИли просто отправьте файл .xlsx, чтобы начать.")
     log_interaction(message, "sent /start")
 
 @bot.message_handler(content_types=['document'])
@@ -25,7 +26,7 @@ def doc_no_context(message):
         xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
         path = "input/" + doc_name
 
-        bot.reply_to(message, f"Файл получен. Что будем с ним делать?\n\n{context_descriptions}")
+        bot.reply_to(message, f"Файл получен. Что нужно сделать?\n\n{context_descriptions}")
         bot.register_next_step_handler(message, get_context, xlsx_doc, path)
     else:
         bot.reply_to(message, "К сожалению, принимаются только файлы формата .xlsx.")
@@ -75,7 +76,7 @@ def doc_upload_records(message):
         # СЗ_Number
 
         # Request the number via Telegram bot
-        bot.reply_to(message, "✍️ Введите СЗ_Number.")
+        bot.reply_to(message, "✍️ Введите СЗ_Number.\n\n/cancel — отмена")
         bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
     else:
         bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
@@ -87,7 +88,7 @@ def sz_number_listener(message, xlsx_doc, path):
     else:
         sz_number = message.text
         logging.info(f"СЗ_Number: {sz_number} (received from {get_log_username(message.from_user)})")
-        bot.reply_to(message, "✍️ Введите CustomStatus (on/off).")
+        bot.reply_to(message, "✍️ Введите CustomStatus (on/off).\n\n/cancel — отмена")
         bot.register_next_step_handler(message, custom_status_listener, xlsx_doc, path, sz_number)
 
 def custom_status_listener(message, xlsx_doc, path, sz_number):
@@ -96,7 +97,7 @@ def custom_status_listener(message, xlsx_doc, path, sz_number):
     else:
         custom_status = message.text
         logging.info(f"CustomStatus: {custom_status} (received from {get_log_username(message.from_user)})")
-        bot.reply_to(message, "✍️ Введите StartTime.")
+        bot.reply_to(message, "✍️ Введите StartTime.\n\n/cancel — отмена")
         bot.register_next_step_handler(message, start_time_listener, xlsx_doc, path, sz_number, custom_status)
 
 def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
@@ -105,7 +106,7 @@ def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
     else:
         start_time = message.text
         logging.info(f"StartTime: {start_time} (received from {get_log_username(message.from_user)})")
-        bot.reply_to(message, "✍️ Введите EndTime.")
+        bot.reply_to(message, "✍️ Введите EndTime.\n\n/cancel — отмена")
         bot.register_next_step_handler(message, end_time_listener, xlsx_doc, path, sz_number, custom_status, start_time)
 
 def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_time):
@@ -142,6 +143,27 @@ def doc_upload_stats(message, xlsx_doc):
             new_file.write(xlsx_doc)
         bot.reply_to(message, "Файл статистики успешно перезаписан.")
         logging.info(f"Overwrote database/stats.xlsx with the file provided by {get_log_username(message.from_user)}.")
+
+# ===
+# count_stats ↓
+# ===
+
+@bot.message_handler(commands=['count_stats'])
+def count_stats(message):
+    bot.reply_to(message, "Провожу анализ статистики...")
+    log_interaction(message, "sent /count_stats")
+    xlsx.analyze_stats(message)
+
+# ===
+# get_records ↓
+# ===
+
+@bot.message_handler(commands=['get_records'])
+def get_records(message):
+    log_interaction(message, "sent /get_records")
+    database = open("database/database.xlsx", "rb")
+    bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+    xlsx.analyze_stats(message)
 
 # ===
 #

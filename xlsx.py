@@ -20,6 +20,7 @@ def read_database():
 read_database()
 
 def get_worksheet(file, message, sz_number, custom_status, start_time, end_time):
+    # Appends `file` data to database/database.xlsx is a smart way.
     global database
     if config.read_database_on_each_input:
         read_database()
@@ -107,3 +108,8 @@ def records_amount_case(amount_int, is_genitive: bool):
         return "записи"
     else:
         return "записей"
+
+def analyze_stats(message):
+    global database
+    stats = pandas.read_excel("database/stats.xlsx")
+    # TODO: Analyze stats
