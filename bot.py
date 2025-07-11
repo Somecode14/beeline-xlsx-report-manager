@@ -7,7 +7,7 @@ import xlsx
 
 bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
-context_descriptions = "/upload_records — Это служебная записка, добавить в общую базу.\n/upload_stats — Это файл статистики, перезаписать его на этот.\n\n/cancel — Отмена, ничего не делать с этим файлом"
+context_descriptions = "/upload_records: Это служебная записка, добавить в общую базу.\n/upload_stats: Это файл статистики, перезаписать его на этот.\n\n/cancel: Отмена, ничего не делать с этим файлом"
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -41,6 +41,7 @@ def get_context(message, xlsx_doc, path):
         doc_upload_stats(message, xlsx_doc)
     elif message.text == "/cancel":
         bot.reply_to(message, "Окей, загрузка отменена.\nОтпавьте файл заново или введите /start для подробносткей.")
+        log_interaction(message, "cancelled uploading.")
     else:
         bot.reply_to(message, f"Не понял. Пожалуйста, выберите команду из списка, кликнув или коснувшись её.\n\nЧто это за файл?\n\n{context_descriptions}")
         bot.register_next_step_handler(message, get_context, xlsx_doc, path)
@@ -81,29 +82,41 @@ def doc_upload_records(message):
         logging.info("It is not an .xlsx file, nothing happened.")
 
 def sz_number_listener(message, xlsx_doc, path):
-    sz_number = message.text
-    logging.info(f"СЗ_Number: {sz_number} (received from {get_log_username(message.from_user)})")
-    bot.reply_to(message, "✍️ Введите CustomStatus (on/off).")
-    bot.register_next_step_handler(message, custom_status_listener, xlsx_doc, path, sz_number)
+    if message.text.startswith("/"):
+        cancel(message)
+    else:
+        sz_number = message.text
+        logging.info(f"СЗ_Number: {sz_number} (received from {get_log_username(message.from_user)})")
+        bot.reply_to(message, "✍️ Введите CustomStatus (on/off).")
+        bot.register_next_step_handler(message, custom_status_listener, xlsx_doc, path, sz_number)
 
 def custom_status_listener(message, xlsx_doc, path, sz_number):
-    custom_status = message.text
-    logging.info(f"CustomStatus: {custom_status} (received from {get_log_username(message.from_user)})")
-    bot.reply_to(message, "✍️ Введите StartTime.")
-    bot.register_next_step_handler(message, start_time_listener, xlsx_doc, path, sz_number, custom_status)
+    if message.text.startswith("/"):
+        cancel(message)
+    else:
+        custom_status = message.text
+        logging.info(f"CustomStatus: {custom_status} (received from {get_log_username(message.from_user)})")
+        bot.reply_to(message, "✍️ Введите StartTime.")
+        bot.register_next_step_handler(message, start_time_listener, xlsx_doc, path, sz_number, custom_status)
 
 def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
-    start_time = message.text
-    logging.info(f"StartTime: {start_time} (received from {get_log_username(message.from_user)})")
-    bot.reply_to(message, "✍️ Введите EndTime.")
-    bot.register_next_step_handler(message, end_time_listener, xlsx_doc, path, sz_number, custom_status, start_time)
+    if message.text.startswith("/"):
+        cancel(message)
+    else:
+        start_time = message.text
+        logging.info(f"StartTime: {start_time} (received from {get_log_username(message.from_user)})")
+        bot.reply_to(message, "✍️ Введите EndTime.")
+        bot.register_next_step_handler(message, end_time_listener, xlsx_doc, path, sz_number, custom_status, start_time)
 
 def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_time):
-    end_time = message.text
-    logging.info(f"EndTime: {end_time} (received from {get_log_username(message.from_user)})")
-    with open(path, "wb") as new_file:
-        new_file.write(xlsx_doc)
-    xlsx.get_worksheet(path, message, sz_number, custom_status, start_time, end_time)  # -> xlsx.py
+    if message.text.startswith("/"):
+        cancel(message)
+    else:
+        end_time = message.text
+        logging.info(f"EndTime: {end_time} (received from {get_log_username(message.from_user)})")
+        with open(path, "wb") as new_file:
+            new_file.write(xlsx_doc)
+        xlsx.get_worksheet(path, message, sz_number, custom_status, start_time, end_time)  # -> xlsx.py
 
 # ===
 # upload_stats ↓
@@ -120,6 +133,7 @@ def doc_upload_stats(message, xlsx_doc):
             with open("database/stats.xlsx", "wb") as new_file:
                 new_file.write(xlsx_doc)
             bot.reply_to(message, "Файл статистики перезаписан.")
+            logging.info("Overwrote database/stats.xlsx with the provided file.")
         else:
             bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
             logging.info("It is not an .xlsx file, nothing happened.")
@@ -127,6 +141,7 @@ def doc_upload_stats(message, xlsx_doc):
         with open("database/stats.xlsx", "wb") as new_file:
             new_file.write(xlsx_doc)
         bot.reply_to(message, "Файл статистики успешно перезаписан.")
+        logging.info(f"Overwrote database/stats.xlsx with the file provided by {get_log_username(message.from_user)}.")
 
 # ===
 #
@@ -153,5 +168,9 @@ def get_log_username(user):
             return f"{user.first_name} {user.last_name} ({user.id})"
     else:
         return f"@{user.username} ({user.id})"
+
+def cancel(message):
+    log_interaction(message, "sent some command. Interrupting current flow.")
+    bot.reply_to(message, "Загрузка отменена. Пожалуйста, введите команду заново, чтобы её выполнить.")
 
 bot.infinity_polling()

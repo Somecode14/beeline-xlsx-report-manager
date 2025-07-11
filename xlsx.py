@@ -89,7 +89,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
     if new_cell_names or modified_cell_names:
         database = pandas.concat([database, new_rows])
         database.to_excel("database/database.xlsx", index=False)
-        logging.info(f"All changes have been written to the database.")
+        logging.info(f"All changes have been written to database/database.xlsx.")
         bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе: {modified_cell_names}")
     else:
         bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
