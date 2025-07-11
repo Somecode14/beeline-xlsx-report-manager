@@ -7,14 +7,63 @@ import xlsx
 
 bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
+context_descriptions = "/upload_records — Это служебная записка, добавить в общую базу.\n/upload_stats — Это файл статистики, перезаписать его на этот.\n\n/cancel — Отмена, ничего не делать с этим файлом"
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    # TODO: добавить описание команды выгрузки статистики
-    bot.reply_to(message, "Добро пожаловать! Отправьте файл .xlsx для добавления информации в базу.\nИли введите /start, чтобы показать это сообщение ещё раз.")
+    bot.reply_to(message, "Добро пожаловать!\n\n/upload_records — добавить служебную записку в базу\n/upload_stats — перезаписать файл статистики\n\nИли просто отправьте файл .xlsx, чтобы начать.")
     log_interaction(message, "sent /start")
 
 @bot.message_handler(content_types=['document'])
-def doc(message):
+def doc_no_context(message):
+    # Runs when the user sends a document without running any commands before that.
+    # The bot asks whether the document is a list of records or a stats file.
+    doc_name = message.document.file_name
+    log_interaction(message, f"sent a document: \"{doc_name}\"")
+    if doc_name.endswith(".xlsx"):
+        xlsx_doc_info = bot.get_file(message.document.file_id)
+        xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+        path = "input/" + doc_name
+
+        bot.reply_to(message, f"Файл получен. Что будем с ним делать?\n\n{context_descriptions}")
+        bot.register_next_step_handler(message, get_context, xlsx_doc, path)
+    else:
+        bot.reply_to(message, "К сожалению, принимаются только файлы формата .xlsx.")
+        logging.info("It is not an .xlsx file, nothing happened.")
+
+def get_context(message, xlsx_doc, path):
+    # Runs when the user sends a document without running any commands before that
+    # and only then answers whether the document is a list of records or a stats file.
+    if message.text == "/upload_records":
+        bot.reply_to(message, "Эта записка будет добавлена в базу после уточнения нескольких значений:\n\n✍️ Введите СЗ_Number.")
+        bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
+    elif message.text == "/upload_stats":
+        doc_upload_stats(message, xlsx_doc)
+    elif message.text == "/cancel":
+        bot.reply_to(message, "Окей, загрузка отменена.\nОтпавьте файл заново или введите /start для подробносткей.")
+    else:
+        bot.reply_to(message, f"Не понял. Пожалуйста, выберите команду из списка, кликнув или коснувшись её.\n\nЧто это за файл?\n\n{context_descriptions}")
+        bot.register_next_step_handler(message, get_context, xlsx_doc, path)
+
+# Commands without any documents previously sent ↓
+
+@bot.message_handler(commands=['upload_records'])
+def upload_records(message):
+    bot.reply_to(message, "Добавляем данные из служебной записки в базу данных.\n📄 Отправьте служебную записку в формате .xlsx.")
+    log_interaction(message, "sent /upload_records. Awaiting for an .xslx file.")
+    bot.register_next_step_handler(message, doc_upload_records)
+
+@bot.message_handler(commands=['upload_stats'])
+def upload_stats(message):
+    bot.reply_to(message, "Записываем новый файл статистики. Раннее загруженный файл статистики будет перезаписан!\n📄 Отправьте файл статистики в формате .xlsx.")
+    log_interaction(message, "sent /upload_stats. Awaiting for an .xslx file.")
+    bot.register_next_step_handler(message, doc_upload_stats, None)
+
+# ===
+# upload_records ↓
+# ===
+
+def doc_upload_records(message):
     doc_name = message.document.file_name
     log_interaction(message, f"sent a document: \"{doc_name}\"")
     if doc_name.endswith(".xlsx"):
@@ -30,29 +79,6 @@ def doc(message):
     else:
         bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
         logging.info("It is not an .xlsx file, nothing happened.")
-
-@bot.message_handler()
-def msg(message):
-    # TODO: добавить описание команды выгрузки статистики
-    bot.reply_to(message, "Отправьте файл .xlsx для добавления информации в базу или введите /start, чтобы показать приветственное сообщение.")
-    log_message(message)
-
-def log_interaction(message, text):
-    logging.info(f"<{get_log_username(message.from_user)}> {text}")
-
-def log_message(message):
-    logging.info(f"<{get_log_username(message.from_user)}>: {message.text}")
-
-def get_log_username(user):
-    # Форматирует имя пользователя и ID для использования в логах.
-    # Если пользователь не имеет @юзернейма, отображаются Имя и Фамилия, указанные в профиле
-    if user.username is None:
-        if user.last_name is None:
-            return f"{user.first_name} ({user.id})"
-        else:
-            return f"{user.first_name} {user.last_name} ({user.id})"
-    else:
-        return f"@{user.username} ({user.id})"
 
 def sz_number_listener(message, xlsx_doc, path):
     sz_number = message.text
@@ -78,5 +104,54 @@ def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_t
     with open(path, "wb") as new_file:
         new_file.write(xlsx_doc)
     xlsx.get_worksheet(path, message, sz_number, custom_status, start_time, end_time)  # -> xlsx.py
+
+# ===
+# upload_stats ↓
+# ===
+
+def doc_upload_stats(message, xlsx_doc):
+    if xlsx_doc is None:
+        doc_name = message.document.file_name
+        log_interaction(message, f"sent a document: \"{doc_name}\"")
+        if doc_name.endswith(".xlsx"):
+            xlsx_doc_info = bot.get_file(message.document.file_id)
+            xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+
+            with open("database/stats.xlsx", "wb") as new_file:
+                new_file.write(xlsx_doc)
+            bot.reply_to(message, "Файл статистики перезаписан.")
+        else:
+            bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
+            logging.info("It is not an .xlsx file, nothing happened.")
+    else:
+        with open("database/stats.xlsx", "wb") as new_file:
+            new_file.write(xlsx_doc)
+        bot.reply_to(message, "Файл статистики успешно перезаписан.")
+
+# ===
+#
+# ===
+
+@bot.message_handler()
+def msg(message):
+    bot.reply_to(message, "Введите /start, чтобы начать, или отправьте файл .xlsx для загрузки новых данных.")
+    log_message(message)
+
+def log_interaction(message, text):
+    logging.info(f"<{get_log_username(message.from_user)}> {text}")
+
+def log_message(message):
+    logging.info(f"<{get_log_username(message.from_user)}>: {message.text}")
+
+def get_log_username(user):
+    # Форматирует имя пользователя и ID для использования в логах.
+    # Если пользователь не имеет @юзернейма, отображаются Имя и Фамилия, указанные в профиле
+    if user.username is None:
+        if user.last_name is None:
+            return f"{user.first_name} ({user.id})"
+        else:
+            return f"{user.first_name} {user.last_name} ({user.id})"
+    else:
+        return f"@{user.username} ({user.id})"
 
 bot.infinity_polling()
