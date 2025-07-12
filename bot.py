@@ -36,7 +36,7 @@ def get_context(message, xlsx_doc, path):
     # Runs when the user sends a document without running any commands before that
     # and only then answers whether the document is a list of records or a stats file.
     if message.text == "/upload_records":
-        bot.reply_to(message, "Эта записка будет добавлена в базу после уточнения нескольких значений:\n\n✍️ Введите СЗ_Number.")
+        bot.reply_to(message, "Эта записка будет добавлена в базу после уточнения нескольких значений:\n\n✍️ Введите СЗ_Number.\n\n/cancel — отмена")
         bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
     elif message.text == "/upload_stats":
         doc_upload_stats(message, xlsx_doc)

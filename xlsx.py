@@ -41,7 +41,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
 
             else:
 
-                logging.info(f"Changing the CustomStatus from {matched_custom_status.values[0]} to {custom_status}.")
+                logging.info(f"Changing its CustomStatus from {matched_custom_status.values[0]} to {custom_status}.")
                 database.loc[matched_custom_status.index[0], "CustomStatus"] = custom_status
                 modified_cell_names.append(cell_name)
 
@@ -89,7 +89,13 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
             logging.info(f"Added CellName {cell_name} to the database.")
     if new_cell_names or modified_cell_names:
         database = pandas.concat([database, new_rows])
-        database.to_excel("database/database.xlsx", index=False)
+        with pandas.ExcelWriter("database/database.xlsx", engine="xlsxwriter") as database_output:
+            database.to_excel(database_output, index=False, sheet_name="Database")
+            database_output_sheet = database_output.sheets["Database"]
+            database_output_sheet.set_column("A:A", 19)
+            database_output_sheet.set_column("B:C", 10)
+            database_output_sheet.set_column("D:G", 12)
+            database_output_sheet.set_column("H:K", 19)
         logging.info(f"All changes have been written to database/database.xlsx.")
         bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе: {modified_cell_names}")
     else:
@@ -111,5 +117,22 @@ def records_amount_case(amount_int, is_genitive: bool):
 
 def analyze_stats(message):
     global database
+    logging.info("Loading stats...")
     stats = pandas.read_excel("database/stats.xlsx")
-    # TODO: Analyze stats
+
+    # TODO: Sheet 1 - Stats by Department
+
+    # Sheet 2 - Stats by Cell
+
+    stats_nonzero_traffic = stats.loc[pandas.to_numeric(stats["TRAFFIC DATA 3G"], errors="coerce").fillna(0) + pandas.to_numeric(stats["TRAFFIC DATA 4G"], errors="coerce").fillna(0) != 0]
+    logging.info(f"Found {len(stats_nonzero_traffic)} nonzero traffic records. Checking which of these have CustomStatus == 'on' in the database...")
+    custom_status_nonzero_traffic = database.merge(stats, left_on="CellName", right_on="CELL_MNEMONIC")[["CellName", "TRAFFIC DATA 3G", "TRAFFIC DATA 4G", "CustomStatus"]].loc[database["CustomStatus"] == "on"]
+    total_nonzero_records_with_custom_status = len(custom_status_nonzero_traffic)
+    logging.info(f"That's {total_nonzero_records_with_custom_status} records.")
+    with pandas.ExcelWriter("output/stats.xlsx", engine="xlsxwriter") as stats_output:
+        custom_status_nonzero_traffic.to_excel(stats_output, index=False, sheet_name="Cells")
+        stats_output_sheet_cells = stats_output.sheets["Cells"]
+        stats_output_sheet_cells.set_column("A:D", 19)
+    logging.info(f"Written to output/stats.xlsx.")
+    status_output_file = open("output/stats.xlsx", "rb")
+    bot.bot.send_document(message.chat.id, status_output_file, caption=f"Статистика готова.\nВсего {total_nonzero_records_with_custom_status} {records_amount_case(total_nonzero_records_with_custom_status, False)} с 3G/4G-трафиком.\n\nСгенерировано {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
