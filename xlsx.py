@@ -83,7 +83,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
             else:
                 logging.info(f"No Ran specified. Leaving it empty.")
 
-            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
+            new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "(Не указан)", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
             new_rows = pandas.concat([new_rows, new_row.to_frame().T])
             cell_names.add(cell_name)
             logging.info(f"Added CellName {cell_name} to the database.")
@@ -120,19 +120,31 @@ def analyze_stats(message):
     logging.info("Loading stats...")
     stats = pandas.read_excel("database/stats.xlsx")
 
-    # TODO: Sheet 1 - Stats by Department
-
     # Sheet 2 - Stats by Cell
 
     stats_nonzero_traffic = stats.loc[pandas.to_numeric(stats["TRAFFIC DATA 3G"], errors="coerce").fillna(0) + pandas.to_numeric(stats["TRAFFIC DATA 4G"], errors="coerce").fillna(0) != 0]
     logging.info(f"Found {len(stats_nonzero_traffic)} nonzero traffic records. Checking which of these have CustomStatus == 'on' in the database...")
-    custom_status_nonzero_traffic = database.merge(stats, left_on="CellName", right_on="CELL_MNEMONIC")[["CellName", "TRAFFIC DATA 3G", "TRAFFIC DATA 4G", "CustomStatus"]].loc[database["CustomStatus"] == "on"]
-    total_nonzero_records_with_custom_status = len(custom_status_nonzero_traffic)
-    logging.info(f"That's {total_nonzero_records_with_custom_status} records.")
+    custom_status_nonzero_records = database.merge(stats_nonzero_traffic, left_on="CellName", right_on="CELL_MNEMONIC")[["CellName", "TRAFFIC DATA 3G", "TRAFFIC DATA 4G", "BSID", "Филиал", "CustomStatus"]].loc[database["CustomStatus"] == "on"]
+    total_custom_status_nonzero_records = len(custom_status_nonzero_records)
+    logging.info(f"That's {total_custom_status_nonzero_records} records.")
+
+    # Sheet 1 - Stats by Department
+
+    logging.info(f"Now checking unique occurrences of CellName and BSID per department and wrapping up.")
+    custom_status_nonzero_records_by_department = custom_status_nonzero_records.groupby(["Филиал"]).agg(
+        CellNames=("CellName", "nunique"),
+        BSIDs=("BSID", "nunique")
+    ).reset_index()
+
     with pandas.ExcelWriter("output/stats.xlsx", engine="xlsxwriter") as stats_output:
-        custom_status_nonzero_traffic.to_excel(stats_output, index=False, sheet_name="Cells")
+        custom_status_nonzero_records_by_department.to_excel(stats_output, index=False, sheet_name="Departments")
+        custom_status_nonzero_records.to_excel(stats_output, index=False, sheet_name="Cells")
+        stats_output_sheet_departments = stats_output.sheets["Departments"]
+        stats_output_sheet_departments.set_column("A:C", 19)
+        stats_output_sheet_departments.freeze_panes(1,1)
         stats_output_sheet_cells = stats_output.sheets["Cells"]
-        stats_output_sheet_cells.set_column("A:D", 19)
+        stats_output_sheet_cells.set_column("A:F", 19)
+        stats_output_sheet_cells.freeze_panes(1,1)
     logging.info(f"Written to output/stats.xlsx.")
     status_output_file = open("output/stats.xlsx", "rb")
-    bot.bot.send_document(message.chat.id, status_output_file, caption=f"Статистика готова.\nВсего {total_nonzero_records_with_custom_status} {records_amount_case(total_nonzero_records_with_custom_status, False)} с 3G/4G-трафиком.\n\nСгенерировано {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+    bot.bot.send_document(message.chat.id, status_output_file, caption=f"Статистика готова.\nВсего {total_custom_status_nonzero_records} {records_amount_case(total_custom_status_nonzero_records, False)} с 3G/4G-трафиком.\n\nСгенерировано {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
