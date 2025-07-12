@@ -105,7 +105,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
             bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
             logging.info("Done — no changes to the database.")
     except Exception as e:
-        bot.bot.reply_to(message, f"❌ Произошла непредвиденная ошибка при добавлении служебной записки в базу.\n\n{e}")
+        bot.bot.reply_to(message, f"❌ Произошла непредвиденная ошибка при добавлении служебной записки в базу.\nПроверьте, что отправили файл в нужном формате.\n\n{e}")
         logging.exception(e)
     try:
         os.remove(file)
