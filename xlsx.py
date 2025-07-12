@@ -1,6 +1,7 @@
 import pandas
 import logging
 from datetime import datetime
+import os
 
 import bot
 import config
@@ -104,6 +105,10 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
     except Exception as e:
         bot.bot.reply_to(message, f"❌ Произошла непредвиденная ошибка при добавлении служебной записки в базу.\n\n{e}")
         logging.exception(e)
+    try:
+        os.remove(file)
+    except Exception as e:
+        logging.exception(f"Couldn't remove temporary input file {file}: {e}")
 
 def records_amount_case(amount_int, is_genitive: bool):
     amount = str(amount_int)
