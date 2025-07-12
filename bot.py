@@ -148,7 +148,7 @@ def doc_upload_stats(message, xlsx_doc):
 
                     with open("database/stats.xlsx", "wb") as new_file:
                         new_file.write(xlsx_doc)
-                    bot.reply_to(message, "Файл статистики перезаписан.")
+                    bot.reply_to(message, "Файл статистики перезаписан.\n\n/count_stats, чтобы сгенерировать сводную таблицу")
                     logging.info("Overwrote database/stats.xlsx with the provided file.")
                 else:
                     bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
@@ -160,7 +160,7 @@ def doc_upload_stats(message, xlsx_doc):
     else:
         with open("database/stats.xlsx", "wb") as new_file:
             new_file.write(xlsx_doc)
-        bot.reply_to(message, "Файл статистики успешно перезаписан.")
+        bot.reply_to(message, "Файл статистики успешно перезаписан.\n\n/count_stats, чтобы сгенерировать сводную таблицу")
         logging.info(f"Overwrote database/stats.xlsx with the file provided by {get_log_username(message.from_user)}.")
 
 # ===
@@ -182,7 +182,6 @@ def get_records(message):
     log_interaction(message, "sent /get_records")
     database = open("database/database.xlsx", "rb")
     bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
-    xlsx.analyze_stats(message)
 
 # ===
 #

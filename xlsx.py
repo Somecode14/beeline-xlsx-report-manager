@@ -98,10 +98,12 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
                 database_output_sheet.set_column("B:C", 10)
                 database_output_sheet.set_column("D:G", 12)
                 database_output_sheet.set_column("H:K", 19)
-            logging.info(f"All changes have been written to database/database.xlsx.")
+                database_output_sheet.freeze_panes(1,0)
+            logging.info("All changes have been written to database/database.xlsx.")
             bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе: {modified_cell_names}")
         else:
             bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
+            logging.info("Done — no changes to the database.")
     except Exception as e:
         bot.bot.reply_to(message, f"❌ Произошла непредвиденная ошибка при добавлении служебной записки в базу.\n\n{e}")
         logging.exception(e)
@@ -147,9 +149,9 @@ def analyze_stats(message):
         ).reset_index()
 
         with pandas.ExcelWriter("output/stats.xlsx", engine="xlsxwriter") as stats_output:
-            custom_status_nonzero_records_by_department.to_excel(stats_output, index=False, sheet_name="Departments")
+            custom_status_nonzero_records_by_department.to_excel(stats_output, index=False, sheet_name="Филиалы")
             custom_status_nonzero_records.to_excel(stats_output, index=False, sheet_name="Cells")
-            stats_output_sheet_departments = stats_output.sheets["Departments"]
+            stats_output_sheet_departments = stats_output.sheets["Филиалы"]
             stats_output_sheet_departments.set_column("A:C", 19)
             stats_output_sheet_departments.freeze_panes(1,1)
             stats_output_sheet_cells = stats_output.sheets["Cells"]
@@ -157,7 +159,7 @@ def analyze_stats(message):
             stats_output_sheet_cells.freeze_panes(1,1)
         logging.info(f"Written to output/stats.xlsx.")
         status_output_file = open("output/stats.xlsx", "rb")
-        bot.bot.send_document(message.chat.id, status_output_file, caption=f"Статистика готова.\nВсего {total_custom_status_nonzero_records} {records_amount_case(total_custom_status_nonzero_records, False)} с 3G/4G-трафиком.\n\nСгенерировано {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+        bot.bot.send_document(message.chat.id, status_output_file, caption=f"Сводная таблица готова.\nВсего {total_custom_status_nonzero_records} {records_amount_case(total_custom_status_nonzero_records, False)} с 3G/4G-трафиком.\n\nСгенерировано {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
     except Exception as e:
         bot.bot.reply_to(message, f"❌ Произошла непредвиденная ошибка при анализе статистики.\n\n{e}")
         logging.exception(e)
