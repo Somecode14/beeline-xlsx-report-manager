@@ -10,10 +10,13 @@ bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 
 context_descriptions = "/upload_records: Это служебная записка, добавить её в общую базу.\n/upload_stats: Это файл статистики, перезаписать его на этот.\n\n/cancel: Отмена, ничего не делать с этим файлом"
 
+def show_help(message):
+    bot.reply_to(message, "Добро пожаловать!\n\n/upload_records — добавить служебную записку в базу\n/upload_stats — перезаписать файл статистики\n/count_stats — провести анализ статистики\n/get_records — скачать базу данных служебных записок\n\nИли просто отправьте файл .xlsx, чтобы начать.")
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Добро пожаловать!\n\n/upload_records — добавить служебную записку в базу\n/upload_stats — перезаписать файл статистики\n/count_stats — провести анализ статистики\n/get_records — скачать базу данных служебных записок\n\nИли просто отправьте файл .xlsx, чтобы начать.")
     log_interaction(message, "sent /start")
+    show_help(message)
 
 @bot.message_handler(content_types=['document'])
 def doc_no_context(message):
@@ -51,13 +54,13 @@ def get_context(message, xlsx_doc, path):
 
 @bot.message_handler(commands=['upload_records'])
 def upload_records(message):
-    bot.reply_to(message, "Добавляем данные из служебной записки в базу данных.\n📄 Отправьте служебную записку в формате .xlsx.")
+    bot.reply_to(message, "Добавляем данные из служебной записки в базу данных.\n📄 Отправьте служебную записку в формате .xlsx.\n\n/cancel — отмена")
     log_interaction(message, "sent /upload_records. Awaiting for an .xslx file.")
     bot.register_next_step_handler(message, doc_upload_records)
 
 @bot.message_handler(commands=['upload_stats'])
 def upload_stats(message):
-    bot.reply_to(message, "Записываем новый файл статистики. Раннее загруженный файл статистики будет перезаписан!\n📄 Отправьте файл статистики в формате .xlsx.")
+    bot.reply_to(message, "Записываем новый файл статистики. Раннее загруженный файл статистики будет перезаписан!\n📄 Отправьте файл статистики в формате .xlsx.\n\n/cancel — отмена")
     log_interaction(message, "sent /upload_stats. Awaiting for an .xslx file.")
     bot.register_next_step_handler(message, doc_upload_stats, None)
 
@@ -66,24 +69,32 @@ def upload_stats(message):
 # ===
 
 def doc_upload_records(message):
-    doc_name = message.document.file_name
-    log_interaction(message, f"sent a document: \"{doc_name}\"")
-    if doc_name.endswith(".xlsx"):
-        xlsx_doc_info = bot.get_file(message.document.file_id)
-        xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
-        path = "input/" + doc_name
-
-        # СЗ_Number
-
-        # Request the number via Telegram bot
-        bot.reply_to(message, "✍️ Введите СЗ_Number.\n\n/cancel — отмена")
-        bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
+    if message.text is not None and message.text.startswith("/"):
+        bot.reply_to(message, "Окей, загрузка служебной записки отменена.\nВведите команду заново.")
     else:
-        bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
-        logging.info("It is not an .xlsx file, nothing happened.")
+        try:
+            doc_name = message.document.file_name
+            log_interaction(message, f"sent a document: \"{doc_name}\"")
+            if doc_name.endswith(".xlsx"):
+                xlsx_doc_info = bot.get_file(message.document.file_id)
+                xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+                path = "input/" + doc_name
+
+                # СЗ_Number
+
+                # Request the number via Telegram bot
+                bot.reply_to(message, "✍️ Введите СЗ_Number.\n\n/cancel — отмена")
+                bot.register_next_step_handler(message, sz_number_listener, xlsx_doc, path)
+            else:
+                bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
+                logging.info("It is not an .xlsx file, nothing happened.")
+        except AttributeError:
+            logging.info(f"Expected a file from {get_log_username(message.from_user)}, but got AttributeError.")
+            bot.reply_to(message, "❌ Отправьте служебную записку в формате .xlsx — её можно прикрепить как документ или переслать из другого чата.\n\n/cancel, если хотите сделать что-то другое")
+            bot.register_next_step_handler(message, doc_upload_records)
 
 def sz_number_listener(message, xlsx_doc, path):
-    if message.text.startswith("/"):
+    if message.text is not None and message.text.startswith("/"):
         cancel(message)
     else:
         sz_number = message.text
@@ -92,7 +103,7 @@ def sz_number_listener(message, xlsx_doc, path):
         bot.register_next_step_handler(message, custom_status_listener, xlsx_doc, path, sz_number)
 
 def custom_status_listener(message, xlsx_doc, path, sz_number):
-    if message.text.startswith("/"):
+    if message.text is not None and message.text.startswith("/"):
         cancel(message)
     else:
         custom_status = message.text
@@ -101,7 +112,7 @@ def custom_status_listener(message, xlsx_doc, path, sz_number):
         bot.register_next_step_handler(message, start_time_listener, xlsx_doc, path, sz_number, custom_status)
 
 def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
-    if message.text.startswith("/"):
+    if message.text is not None and message.text.startswith("/"):
         cancel(message)
     else:
         start_time = message.text
@@ -110,7 +121,7 @@ def start_time_listener(message, xlsx_doc, path, sz_number, custom_status):
         bot.register_next_step_handler(message, end_time_listener, xlsx_doc, path, sz_number, custom_status, start_time)
 
 def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_time):
-    if message.text.startswith("/"):
+    if message.text is not None and message.text.startswith("/"):
         cancel(message)
     else:
         end_time = message.text
@@ -125,19 +136,27 @@ def end_time_listener(message, xlsx_doc, path, sz_number, custom_status, start_t
 
 def doc_upload_stats(message, xlsx_doc):
     if xlsx_doc is None:
-        doc_name = message.document.file_name
-        log_interaction(message, f"sent a document: \"{doc_name}\"")
-        if doc_name.endswith(".xlsx"):
-            xlsx_doc_info = bot.get_file(message.document.file_id)
-            xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
-
-            with open("database/stats.xlsx", "wb") as new_file:
-                new_file.write(xlsx_doc)
-            bot.reply_to(message, "Файл статистики перезаписан.")
-            logging.info("Overwrote database/stats.xlsx with the provided file.")
+        if message.text is not None and message.text.startswith("/"):
+            bot.reply_to(message, "Окей, загрузка статистики отменена.\nВведите команду заново.")
         else:
-            bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
-            logging.info("It is not an .xlsx file, nothing happened.")
+            try:
+                doc_name = message.document.file_name
+                log_interaction(message, f"sent a document: \"{doc_name}\"")
+                if doc_name.endswith(".xlsx"):
+                    xlsx_doc_info = bot.get_file(message.document.file_id)
+                    xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+
+                    with open("database/stats.xlsx", "wb") as new_file:
+                        new_file.write(xlsx_doc)
+                    bot.reply_to(message, "Файл статистики перезаписан.")
+                    logging.info("Overwrote database/stats.xlsx with the provided file.")
+                else:
+                    bot.reply_to(message, "К сожалению, поддерживаются только файлы формата .xlsx.")
+                    logging.info("It is not an .xlsx file, nothing happened.")
+            except AttributeError:
+                logging.info(f"Expected a file from {get_log_username(message.from_user)}, but got AttributeError.")
+                bot.reply_to(message, "❌ Отправьте файл статистики в формате .xlsx — его можно прикрепить как документ или переслать из другого чата.\n\n/cancel, если хотите сделать что-то другое")
+                bot.register_next_step_handler(message, doc_upload_stats, None)
     else:
         with open("database/stats.xlsx", "wb") as new_file:
             new_file.write(xlsx_doc)
@@ -171,7 +190,7 @@ def get_records(message):
 
 @bot.message_handler()
 def msg(message):
-    bot.reply_to(message, "Введите /start, чтобы начать, или отправьте файл .xlsx для загрузки новых данных.")
+    show_help(message)
     log_message(message)
 
 def log_interaction(message, text):
