@@ -36,63 +36,71 @@ def get_worksheet(file, message, sz_number, custom_status, department, start_tim
         modified_cell_names = []
         for row in workbook.index:
             cell_name = workbook.loc[row]["CellName"]
-            if cell_name in cell_names:
-                logging.info(f"CellName {cell_name} is already in the database.")
-
-                matched_custom_status = database.loc[cell_name == database['CellName'], 'CustomStatus']
-                if not matched_custom_status.empty and custom_status == matched_custom_status.values[0]:
-
-                    # Skip record
-                    logging.info(f"Skipping it.")
-
-                else:
-
-                    logging.info(f"Changing its CustomStatus from {matched_custom_status.values[0]} to {custom_status}.")
-                    database.loc[matched_custom_status.index[0], "CustomStatus"] = custom_status
-                    modified_cell_names.append(cell_name)
-
+            if pandas.isna(cell_name):
+                logging.info(f"Skipped empty row [{row}].")
             else:
+                if cell_name in cell_names:
+                    logging.info(f"CellName {cell_name} is already in the database.")
 
-                # Add new record to the database
+                    matched_custom_status = database.loc[cell_name == database['CellName'], 'CustomStatus']
+                    if not matched_custom_status.empty and custom_status == matched_custom_status.values[0]:
 
-                logging.info(f"Adding CellName {cell_name} to the database")
-                new_cell_names.append(cell_name)
+                        # Skip record
+                        logging.info(f"Skipping it.")
 
-                # BsNumber
+                    else:
 
-                bs_number = None
-                if "BsNumber" in workbook:
-                    bs_number = workbook.loc[row]["BsNumber"]
-                elif "Номер БС" in workbook:
-                    bs_number = workbook.loc[row]["Номер БС"]
+                        logging.info(f"Changing its CustomStatus from {matched_custom_status.values[0]} to {custom_status}.")
+                        database.loc[matched_custom_status.index[0], "CustomStatus"] = custom_status
+                        logging.info(f"Also updating СЗ_Number, Филиал, StartTime and EndTime")
+                        database.loc[matched_custom_status.index[0], "СЗ_Number"] = sz_number
+                        database.loc[matched_custom_status.index[0], "Филиал"] = department
+                        database.loc[matched_custom_status.index[0], "StartTime"] = start_time
+                        database.loc[matched_custom_status.index[0], "EndTime"] = end_time
+                        modified_cell_names.append(cell_name)
+
                 else:
-                    logging.warning(f"Unable to get BsNumber of {workbook.loc[row]['CellName']}.")
-                logging.info(f"BsNumber: {bs_number}")
 
-                # BSID
+                    # Add new record to the database
 
-                bsid = None
-                if "PositionCode" in workbook:
-                    bsid = workbook.loc[row]["PositionCode"]
-                elif "Erp" in workbook:
-                    bsid = workbook.loc[row]["Erp"]
-                else:
-                    logging.warning(f"Unable to get BSid of {workbook.loc[row]['CellName']}.")
-                logging.info(f"BSID: {bsid}")
+                    logging.info(f"Adding CellName {cell_name} to the database")
+                    new_cell_names.append(cell_name)
 
-                # Стандарт
+                    # BsNumber
 
-                ran = ""
-                if "Ran" in workbook:
-                    ran = workbook.loc[row]["Ran"]
-                    logging.info(f"Ran: {ran}")
-                else:
-                    logging.info(f"No Ran specified. Leaving it empty.")
+                    bs_number = None
+                    if "BsNumber" in workbook:
+                        bs_number = workbook.loc[row]["BsNumber"]
+                    elif "Номер БС" in workbook:
+                        bs_number = workbook.loc[row]["Номер БС"]
+                    else:
+                        logging.warning(f"Unable to get BsNumber of {workbook.loc[row]['CellName']}.")
+                    logging.info(f"BsNumber: {bs_number}")
 
-                new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": department, "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
-                new_rows = pandas.concat([new_rows, new_row.to_frame().T], ignore_index=True)
-                cell_names.add(cell_name)
-                logging.info(f"Added CellName {cell_name} to the database.")
+                    # BSID
+
+                    bsid = None
+                    if "PositionCode" in workbook:
+                        bsid = workbook.loc[row]["PositionCode"]
+                    elif "Erp" in workbook:
+                        bsid = workbook.loc[row]["Erp"]
+                    else:
+                        logging.warning(f"Unable to get BSid of {workbook.loc[row]['CellName']}.")
+                    logging.info(f"BSID: {bsid}")
+
+                    # Стандарт
+
+                    ran = ""
+                    if "Ran" in workbook:
+                        ran = workbook.loc[row]["Ran"]
+                        logging.info(f"Ran: {ran}")
+                    else:
+                        logging.info(f"No Ran specified. Leaving it empty.")
+
+                    new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": department, "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
+                    new_rows = pandas.concat([new_rows, new_row.to_frame().T], ignore_index=True)
+                    cell_names.add(cell_name)
+                    logging.info(f"Added CellName {cell_name} to the database.")
         if new_cell_names or modified_cell_names:
             database = pandas.concat([database, new_rows], ignore_index=True)
             with pandas.ExcelWriter("database/database.xlsx", engine="xlsxwriter") as database_output:
