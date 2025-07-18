@@ -195,9 +195,13 @@ def count_stats(message):
 
 @bot.message_handler(commands=['get_records'])
 def get_records(message):
-    log_interaction(message, "sent /get_records")
-    database = open("database/database.xlsx", "rb")
-    bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+    try:
+        log_interaction(message, "sent /get_records")
+        database = open("database/database.xlsx", "rb")
+        bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+    except Exception as e:
+        bot.reply_to(message, f"❌ Произошла ошибка при попытке получить базу данных.\n\n{e}")
+        logging.exception(e)
 
 # ===
 #

@@ -12,7 +12,11 @@ cell_names = set()
 def read_database():
     global database
     global cell_names
-    database = pandas.read_excel("database/database.xlsx")
+    if os.path.isfile("database/database.xlsx"):
+        database = pandas.read_excel("database/database.xlsx")
+    else:
+        logging.info(f"No database found. Loading an empty dataset.")
+        database = pandas.DataFrame(columns=["CellName", "BsNumber", "Стандарт", "BSID", "Филиал", "CustomStatus", "СЗ_Number", "StartTime", "EndTime", "Время изменения", "Автор"])
     cell_names = set()
     for cell_name in database["CellName"].values:
         cell_names.add(cell_name)
