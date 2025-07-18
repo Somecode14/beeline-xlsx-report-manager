@@ -86,11 +86,11 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
                     logging.info(f"No Ran specified. Leaving it empty.")
 
                 new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "(Не указан)", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
-                new_rows = pandas.concat([new_rows, new_row.to_frame().T])
+                new_rows = pandas.concat([new_rows, new_row.to_frame().T], ignore_index=True)
                 cell_names.add(cell_name)
                 logging.info(f"Added CellName {cell_name} to the database.")
         if new_cell_names or modified_cell_names:
-            database = pandas.concat([database, new_rows])
+            database = pandas.concat([database, new_rows], ignore_index=True)
             with pandas.ExcelWriter("database/database.xlsx", engine="xlsxwriter") as database_output:
                 database.to_excel(database_output, index=False, sheet_name="Database")
                 database_output_sheet = database_output.sheets["Database"]
@@ -100,7 +100,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
                 database_output_sheet.set_column("H:K", 19)
                 database_output_sheet.freeze_panes(1,0)
             logging.info("All changes have been written to database/database.xlsx.")
-            bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу: {new_cell_names}.\n\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе: {modified_cell_names}")
+            bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу.\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе.")
         else:
             bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
             logging.info("Done — no changes to the database.")
