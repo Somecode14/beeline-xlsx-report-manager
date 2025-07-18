@@ -20,7 +20,7 @@ def read_database():
 
 read_database()
 
-def get_worksheet(file, message, sz_number, custom_status, start_time, end_time):
+def get_worksheet(file, message, sz_number, custom_status, department, start_time, end_time):
     try:
         # Appends `file` data to database/database.xlsx is a smart way.
         global database
@@ -85,7 +85,7 @@ def get_worksheet(file, message, sz_number, custom_status, start_time, end_time)
                 else:
                     logging.info(f"No Ran specified. Leaving it empty.")
 
-                new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": "(Не указан)", "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
+                new_row = pandas.Series(data = {"CellName": cell_name, "BsNumber": bs_number, "Стандарт": ran, "BSID": bsid, "Филиал": department, "CustomStatus": custom_status, "СЗ_Number": sz_number, "StartTime": start_time, "EndTime": end_time, "Время изменения": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "Автор": bot.get_log_username(message.from_user)})
                 new_rows = pandas.concat([new_rows, new_row.to_frame().T], ignore_index=True)
                 cell_names.add(cell_name)
                 logging.info(f"Added CellName {cell_name} to the database.")
@@ -128,6 +128,8 @@ def records_amount_case(amount_int, is_genitive: bool):
 
 def analyze_stats(message):
     try:
+        if config.read_database_on_each_input:
+            read_database()
         global database
         logging.info("Loading stats...")
         stats = pandas.read_excel("database/stats.xlsx")
