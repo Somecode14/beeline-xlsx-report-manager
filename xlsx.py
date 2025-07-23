@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 import os
 
+import telebot.apihelper
+
 import bot
 import config
 
@@ -113,6 +115,11 @@ def get_worksheet(file, message, sz_number, custom_status, department, start_tim
                 database_output_sheet.freeze_panes(1,0)
             logging.info("All changes have been written to database/database.xlsx.")
             bot.bot.reply_to(message, f"Добавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)} в базу.\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)} в базе.")
+            for chat in config.chats:
+                try:
+                    bot.bot.send_message(chat, f"<{bot.get_log_username(message.from_user)}> загрузил служебную записку {file}\n\nСЗ_Number: {sz_number}\nCustomStatus: {custom_status}\nФилиал: {department}\nStartTime: {start_time}\nEndTime: {end_time}\n\nДобавлено {len(new_cell_names)} {records_amount_case(len(new_cell_names), False)}.\nИзменён статус {len(modified_cell_names)} {records_amount_case(len(modified_cell_names), True)}.\n\n/get_records, чтобы скачать обновлённую базу.")
+                except telebot.apihelper.ApiTelegramException:
+                    bot.bot.send_message(message.chat.id, f"⚠️ Чат с ID {chat} не найден — в него должен был быть отправлен отчёт о том, что Вы сейчас загрузили.\n\nИспользуйте /get_chat_id в нужном чате, скопируйте его в config.py и перезапустите бота.")
         else:
             bot.bot.reply_to(message, "Служебная записка не содержит новых записей. Изменений в базу не внесено.")
             logging.info("Done — no changes to the database.")

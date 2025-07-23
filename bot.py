@@ -5,8 +5,13 @@ from datetime import datetime
 import telebot
 
 import xlsx
+import config
 
-bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
+if os.getenv("BOT_TOKEN") is not None:
+    bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
+else:
+    logging.exception(f"\n\nUnable to connect to the bot.\nFirst time using the program? Register a new bot via @BotFather on Telegram, then copy the API token into a .env file, like this:\nBOT_TOKEN=12345:ABCDE\n\nRestart the script after you are done.")
+    exit(3)
 
 context_descriptions = "/upload_records: Это служебная записка, добавить её в общую базу.\n/upload_stats: Это файл статистики, перезаписать его на этот.\n\n/cancel: Отмена, ничего не делать с этим файлом"
 
@@ -71,6 +76,7 @@ def upload_stats(message):
 def doc_upload_records(message):
     if message.text is not None and message.text.startswith("/"):
         bot.reply_to(message, "Окей, загрузка служебной записки отменена.\nВведите команду заново.")
+        log_interaction(message, "cancelled the upload.")
     else:
         try:
             doc_name = message.document.file_name
@@ -154,6 +160,7 @@ def doc_upload_stats(message, xlsx_doc):
     if xlsx_doc is None:
         if message.text is not None and message.text.startswith("/"):
             bot.reply_to(message, "Окей, загрузка статистики отменена.\nВведите команду заново.")
+            log_interaction(message, "cancelled the upload.")
         else:
             try:
                 doc_name = message.document.file_name
@@ -204,6 +211,14 @@ def get_records(message):
         logging.exception(e)
 
 # ===
+# DEV
+# ===
+
+@bot.message_handler(commands=['get_chat_id'])
+def get_chat_id(message):
+    bot.reply_to(message, f"Current Chat ID: {message.chat.id}")
+    log_interaction(message, "sent /get_chat_id")
+# ===
 #
 # ===
 
@@ -214,6 +229,12 @@ def msg(message):
 
 def log_interaction(message, text):
     logging.info(f"<{get_log_username(message.from_user)}> {text}")
+    if config.extended_logs_in_chats:
+        for chat in config.chats:
+            try:
+                bot.send_message(chat, f"<{get_log_username(message.from_user)}> {text}")
+            except telebot.apihelper.ApiTelegramException:
+                logging.warning(f"Chat {chat} not found. Use /get_chat_id and copy the ID into config.py")
 
 def log_message(message):
     logging.info(f"<{get_log_username(message.from_user)}>: {message.text}")
