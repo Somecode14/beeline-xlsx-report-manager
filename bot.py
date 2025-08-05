@@ -20,25 +20,27 @@ def show_help(message):
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    log_interaction(message, "sent /start")
-    show_help(message)
+    if config.has_access(message):
+        log_interaction(message, "sent /start")
+        show_help(message)
 
 @bot.message_handler(content_types=['document'])
 def doc_no_context(message):
-    # Runs when the user sends a document without running any commands before that.
-    # The bot asks whether the document is a list of records or a stats file.
-    doc_name = message.document.file_name
-    log_interaction(message, f"sent a document: \"{doc_name}\"")
-    if doc_name.endswith(".xlsx"):
-        xlsx_doc_info = bot.get_file(message.document.file_id)
-        xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
-        path = "input/" + doc_name
+    if config.has_access(message):
+        # Runs when the user sends a document without running any commands before that.
+        # The bot asks whether the document is a list of records or a stats file.
+        doc_name = message.document.file_name
+        log_interaction(message, f"sent a document: \"{doc_name}\"")
+        if doc_name.endswith(".xlsx"):
+            xlsx_doc_info = bot.get_file(message.document.file_id)
+            xlsx_doc = bot.download_file(xlsx_doc_info.file_path)
+            path = "input/" + doc_name
 
-        bot.reply_to(message, f"Файл получен. Что нужно сделать?\n\n{context_descriptions}")
-        bot.register_next_step_handler(message, get_context, xlsx_doc, path)
-    else:
-        bot.reply_to(message, "К сожалению, принимаются только файлы формата .xlsx.")
-        logging.info("It is not an .xlsx file, nothing happened.")
+            bot.reply_to(message, f"Файл получен. Что нужно сделать?\n\n{context_descriptions}")
+            bot.register_next_step_handler(message, get_context, xlsx_doc, path)
+        else:
+            bot.reply_to(message, "К сожалению, принимаются только файлы формата .xlsx.")
+            logging.info("It is not an .xlsx file, nothing happened.")
 
 def get_context(message, xlsx_doc, path):
     # Runs when the user sends a document without running any commands before that
@@ -59,15 +61,17 @@ def get_context(message, xlsx_doc, path):
 
 @bot.message_handler(commands=['upload_records'])
 def upload_records(message):
-    bot.reply_to(message, "Добавляем данные из служебной записки в базу данных.\n📄 Отправьте служебную записку в формате .xlsx.\n\n/cancel — отмена")
-    log_interaction(message, "sent /upload_records. Awaiting for an .xslx file.")
-    bot.register_next_step_handler(message, doc_upload_records)
+    if config.has_access(message):
+        bot.reply_to(message, "Добавляем данные из служебной записки в базу данных.\n📄 Отправьте служебную записку в формате .xlsx.\n\n/cancel — отмена")
+        log_interaction(message, "sent /upload_records. Awaiting for an .xslx file.")
+        bot.register_next_step_handler(message, doc_upload_records)
 
 @bot.message_handler(commands=['upload_stats'])
 def upload_stats(message):
-    bot.reply_to(message, "Записываем новый файл статистики. Раннее загруженный файл статистики будет перезаписан!\n📄 Отправьте файл статистики в формате .xlsx.\n\n/cancel — отмена")
-    log_interaction(message, "sent /upload_stats. Awaiting for an .xslx file.")
-    bot.register_next_step_handler(message, doc_upload_stats, None)
+    if config.has_access(message):
+        bot.reply_to(message, "Записываем новый файл статистики. Раннее загруженный файл статистики будет перезаписан!\n📄 Отправьте файл статистики в формате .xlsx.\n\n/cancel — отмена")
+        log_interaction(message, "sent /upload_stats. Awaiting for an .xslx file.")
+        bot.register_next_step_handler(message, doc_upload_stats, None)
 
 # ===
 # upload_records ↓
@@ -192,9 +196,10 @@ def doc_upload_stats(message, xlsx_doc):
 
 @bot.message_handler(commands=['count_stats'])
 def count_stats(message):
-    bot.reply_to(message, "Провожу анализ статистики...")
-    log_interaction(message, "sent /count_stats")
-    xlsx.analyze_stats(message)
+    if config.has_access(message):
+        bot.reply_to(message, "Провожу анализ статистики...")
+        log_interaction(message, "sent /count_stats")
+        xlsx.analyze_stats(message)
 
 # ===
 # get_records ↓
@@ -202,17 +207,80 @@ def count_stats(message):
 
 @bot.message_handler(commands=['get_records'])
 def get_records(message):
-    try:
-        log_interaction(message, "sent /get_records")
-        database = open("database/database.xlsx", "rb")
-        bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
-    except Exception as e:
-        bot.reply_to(message, f"❌ Произошла ошибка при попытке получить базу данных.\n\n{e}")
-        logging.exception(e)
+    if config.has_access(message):
+        try:
+            log_interaction(message, "sent /get_records")
+            database = open("database/database.xlsx", "rb")
+            bot.send_document(message.chat.id, database, caption=f"База данных на {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", reply_to_message_id=message.message_id)
+        except Exception as e:
+            bot.reply_to(message, f"❌ Произошла ошибка при попытке получить базу данных.\n\n{e}")
+            logging.exception(e)
 
 # ===
-# DEV
+# ADMIN
 # ===
+
+@bot.message_handler(commands=['whitelist_add'])
+def whitelist_add(message):
+    if message.from_user.id in config.admins:
+        bot.reply_to(message, f"🔐 Добавляем пользователя в белый список. Он получит доступ к полной базе служебных записок, в том числе сможет загружать новые служебные записки, перезаписывать и генерировать статистику.\n\nВставьте внутренний ID пользователя — попросите его написать что-нибудь этому боту, чтобы получить его.\n\n/cancel — отмена")
+        log_interaction(message, "sent /whitelist_add. Requesting User ID.")
+        bot.register_next_step_handler(message, whitelist_modify_id, True)
+    else:
+        bot.reply_to(message, f"🔒 Отказано в доступе — команда доступна только администраторам.\nЕсли Вы считаете, что это ошибка, попросите системного администратора добавить ID {message.from_user.id} в список Администраторов в файле конфигурации.")
+
+
+@bot.message_handler(commands=['whitelist_remove'])
+def whitelist_remove(message):
+    if message.from_user.id in config.admins:
+        bot.reply_to(message, f"🔐 Удаляем пользователя из белого списка. Он больше не будет иметь доступа к полной базе служебных записок и статистике.\n\nЕсли пользователь является Администратором, как и Вы, он сможет снова добавить себя в whitelist. Чтобы удалить пользователя из списка администраторов, попросите системного администратора изменить файл конфигурации и перезапустить программу.\n\nВставьте внутренний ID пользователя — его можно найти в логах программы. Или попросите пользователя ввести /get_chat_id в ЛС с этим ботом и отправить Вам полученный ID.\n\n/cancel — отмена")
+        log_interaction(message, "sent /whitelist_remove. Requesting User ID.")
+        bot.register_next_step_handler(message, whitelist_modify_id, False)
+    else:
+        bot.reply_to(message, f"🔒 Отказано в доступе — команда доступна только администраторам.\nОбратитесь к одному из них или, если считаете, что это ошибка, попросите системного администратора добавить ID {message.from_user.id} в список Администраторов в файле конфигурации.")
+
+def whitelist_modify_id(message, to_add: bool):
+    if message.text.startswith("/"):
+        bot.reply_to(message, "Отменено. Введите новую команду.")
+        log_interaction(message, "sent some command. Cancelling adding to whitelist.")
+    else:
+        if message.from_user.id in config.admins:
+            if message.text.isdecimal():
+                if to_add:
+                    if int(message.text) in config.whitelisted_users or message.text in config.whitelisted_users:
+                        if int(message.text) in config.admins or message.text in config.admins:
+                            bot.reply_to(message, f"❌ Пользователь с ID {message.text} уже в whitelistе. Ничего не изменилось.\n\nОн также является Администратором, то есть может изменять whitelist, как и Вы.\nЕсли хотите изменить это, отредактируйте файл конфигурации и перезапустите программу.")
+                        else:
+                            bot.reply_to(message, f"❌ Пользователь с ID {message.text} уже в whitelistе. Ничего не изменилось.\n\nЕсли Вы хотите выдать права Администратора этому пользователю, чтобы он тоже мог изменять whitelist, отредактируйте файл конфигурации и перезапустите программу. В целях безопасности через бота это сделать нельзя.")
+                        log_interaction(message, f"tried to add ID {message.text} to whitelist. That user is already whitelisted; nothing changed.")
+                    else:
+                        config.whitelisted_users.add(int(message.text))
+                        log_interaction(message, f"added ID {message.text} to whitelist.")
+                        config.write_config()
+                        bot.reply_to(message, f"🔓 Добавлен пользователь с ID {message.text} в whitelist. Теперь он может взаимодействовать с ботом, в том числе загружать и получать служебные записки и перезаписывать статистику.")
+                else:
+                    removed_successfully = False
+                    if int(message.text) in config.whitelisted_users:
+                        config.whitelisted_users.remove(int(message.text))
+                        logging.info(f"Removed ID {message.text} (int) from whitelist.")
+                        removed_successfully = True
+                    if message.text in config.whitelisted_users:
+                        config.whitelisted_users.remove(message.text)
+                        logging.info(f"Removed ID {message.text} (string) from whitelist.")
+                        removed_successfully = True
+                    if removed_successfully:
+                        config.write_config()
+                        if int(message.text) in config.admins or message.text in config.admins:
+                            bot.reply_to(message, f"🔓 Удалён пользователь с ID {message.text} из whitelistа.\n\n⚠️ ВНИМАНИЕ: Этот человек является Администратором. Он может вновь добавить себя в whitelist самостоятельно. Чтобы удалить пользователя из списка Администраторов, найдите его ID в файле конфигурации и удалите его оттуда. После этого обязательно перезапустите программу.\n\nСнять или выдать права Администратора нельзя через бота в целях безопасности.")
+                        else:
+                            bot.reply_to(message, f"🔓 Удалён пользователь с ID {message.text} из whitelistа. Теперь он не может взаимодействовать с ботом.")
+                    else:
+                        bot.reply_to(message, f"❌ Пользователя с ID {message.text} нет в whitelistе. Ничего не изменилось.")
+                        log_interaction(message, f"tried to remove ID {message.text} from the whitelist. That user was not whitelisted in the first place; nothing changed.")
+            else:
+                bot.reply_to(message, "Подойдёт только внутренний ID — он должен состоять только из цифр.\nПопросите пользователя написать /get_chat_id в ЛС с ботом и сообщить полученный внутренний ID Вам. Внутренний ID также можно найти в логах — он отображается при любом взаимодействии пользователя с ботом.\n\nВведите внутренний ID пользователя.\n\n/cancel — отмена")
+                bot.register_next_step_handler(message, whitelist_modify_id, to_add)
+
 
 @bot.message_handler(commands=['get_chat_id'])
 def get_chat_id(message):
@@ -224,8 +292,9 @@ def get_chat_id(message):
 
 @bot.message_handler()
 def msg(message):
-    show_help(message)
-    log_message(message)
+    if config.has_access(message):
+        show_help(message)
+        log_message(message)
 
 def log_interaction(message, text):
     logging.info(f"<{get_log_username(message.from_user)}> {text}")
